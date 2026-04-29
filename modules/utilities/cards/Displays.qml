@@ -43,7 +43,9 @@ StyledRect {
             return;
         const cur = drafts[name] ?? liveStateOf(m);
         const next = Object.assign({}, drafts);
-        next[name] = Object.assign({}, cur, { [key]: value });
+        next[name] = Object.assign({}, cur, {
+            [key]: value
+        });
         drafts = next;
     }
 
@@ -117,11 +119,12 @@ StyledRect {
     }
 
     Connections {
-        target: Hyprland
         function onRawEvent(event: HyprlandEvent): void {
             if (event.name.includes("mon"))
                 root.refreshMonitors();
         }
+
+        target: Hyprland
     }
 
     Process {
@@ -188,20 +191,16 @@ StyledRect {
                 required property var modelData
 
                 readonly property var live: root.liveStateOf(modelData)
-                readonly property var state: root.drafts[modelData.name] ?? live
+                readonly property var cfg: root.drafts[modelData.name] ?? live
 
                 readonly property string monitorName: modelData.name
-                readonly property string mode: state.mode
-                readonly property bool isEnabled: state.enabled
-                readonly property string mirrorOf: state.mirrorOf
+                readonly property string mode: cfg.mode
+                readonly property bool isEnabled: cfg.enabled
+                readonly property string mirrorOf: cfg.mirrorOf
                 readonly property bool isFocused: monitorName === Hypr.focusedMonitor?.name
                 readonly property bool isMirroring: mode === "mirror" && !isFocused
 
-                readonly property bool dirty: !isFocused && (
-                    state.mode !== live.mode
-                    || state.enabled !== live.enabled
-                    || (state.mode === "mirror" && state.mirrorOf !== live.mirrorOf)
-                )
+                readonly property bool dirty: !isFocused && (cfg.mode !== live.mode || cfg.enabled !== live.enabled || (cfg.mode === "mirror" && cfg.mirrorOf !== live.mirrorOf))
 
                 readonly property string mirrorTargetName: root.effectiveMirrorTarget(monitorName, mirrorOf)
 
