@@ -16,8 +16,8 @@ StyledRect {
     property var liveMonitors: []
     property var drafts: ({})
 
-    readonly property string configFileName: "caelestia-displays.conf"
-    readonly property string configFilePath: `${Quickshell.env("HOME")}/.config/hypr/${configFileName}`
+    readonly property string configFileName: "hypr-displays.conf"
+    readonly property string configFilePath: `${Quickshell.env("HOME")}/.config/caelestia/${configFileName}`
 
     function refreshMonitors(): void {
         if (!queryProc.running)
@@ -95,7 +95,7 @@ StyledRect {
     }
 
     function buildConfigContent(): string {
-        const lines = ["# managed by caelestia displays card"];
+        const lines = ["# managed by caelestia: displays card -- do not edit by hand"];
         for (const m of liveMonitors)
             lines.push(monitorConfigLine(m, effectiveStateOf(m)));
         return lines.join("\n") + "\n";
