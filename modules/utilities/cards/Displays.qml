@@ -20,8 +20,7 @@ StyledRect {
     readonly property string configFilePath: `${Quickshell.env("HOME")}/.config/caelestia/${configFileName}`
 
     function refreshMonitors(): void {
-        if (!queryProc.running)
-            queryProc.running = true;
+        queryProc.running = true;
     }
 
     function liveStateOf(m): var {
@@ -29,11 +28,12 @@ StyledRect {
         return {
             mode: mirroring ? "mirror" : "extend",
             enabled: !m.disabled,
-            mirrorOf: mirroring ? m.mirrorOf : ""
+            mirrorOf: mirroring ? liveMonitors.find(x => String(x.id) === m.mirrorOf).name : ""
         };
     }
 
     function effectiveStateOf(m): var {
+        void drafts;
         return drafts[m.name] ?? liveStateOf(m);
     }
 
@@ -41,9 +41,8 @@ StyledRect {
         const m = liveMonitors.find(x => x.name === name);
         if (!m)
             return;
-        const cur = drafts[name] ?? liveStateOf(m);
         const next = Object.assign({}, drafts);
-        next[name] = Object.assign({}, cur, {
+        next[name] = Object.assign({}, effectiveStateOf(m), {
             [key]: value
         });
         drafts = next;
@@ -65,21 +64,16 @@ StyledRect {
         }).map(m => m.name);
     }
 
-    function defaultMirrorTarget(excludeName: string): string {
+    function effectiveMirrorTarget(excludeName: string, requested: string): string {
         const valid = validMirrorTargets(excludeName);
         if (valid.length === 0)
             return "";
+        if (requested && valid.includes(requested))
+            return requested;
         const focusedName = Hypr.focusedMonitor?.name;
         if (focusedName && valid.includes(focusedName))
             return focusedName;
         return valid[0];
-    }
-
-    function effectiveMirrorTarget(excludeName: string, requested: string): string {
-        const valid = validMirrorTargets(excludeName);
-        if (requested && valid.includes(requested))
-            return requested;
-        return defaultMirrorTarget(excludeName);
     }
 
     function monitorConfigLine(m, state): string {
@@ -146,6 +140,7 @@ StyledRect {
         id: reloadProc
 
         command: ["hyprctl", "reload"]
+        onExited: root.refreshMonitors()
     }
 
     FileView {
@@ -162,8 +157,11 @@ StyledRect {
         printErrors: false
         onLoaded: {
             const cur = text();
-            if (!cur.includes(root.configFileName))
-                setText(`source = ${root.configFilePath}\n${cur}`);
+            if (!cur.includes(root.configFileName)) {
+                setText(`${cur.replace(/\n+$/, "")}\nsource = ${root.configFilePath}\n`);
+                if (!configFile.text())
+                    configFile.setText(root.buildConfigContent());
+            }
         }
     }
 
@@ -194,11 +192,10 @@ StyledRect {
                 readonly property var cfg: root.drafts[modelData.name] ?? live
 
                 readonly property string monitorName: modelData.name
-                readonly property string mode: cfg.mode
                 readonly property bool isEnabled: cfg.enabled
                 readonly property string mirrorOf: cfg.mirrorOf
                 readonly property bool isFocused: monitorName === Hypr.focusedMonitor?.name
-                readonly property bool isMirroring: mode === "mirror" && !isFocused
+                readonly property bool isMirroring: cfg.mode === "mirror"
 
                 readonly property bool dirty: !isFocused && (cfg.mode !== live.mode || cfg.enabled !== live.enabled || (cfg.mode === "mirror" && cfg.mirrorOf !== live.mirrorOf))
 
@@ -210,7 +207,7 @@ StyledRect {
                     if (isFocused)
                         return qsTr("Primary");
                     if (isMirroring)
-                        return mirrorTargetName ? qsTr("Duplicating %1").arg(mirrorTargetName) : qsTr("Mirror");
+                        return qsTr("Duplicating %1").arg(mirrorTargetName);
                     return qsTr("Extending");
                 }
 
@@ -244,7 +241,7 @@ StyledRect {
                                 root.editDraft(row.monitorName, "mode", "mirror");
                                 const valid = root.validMirrorTargets(row.monitorName);
                                 if (!valid.includes(row.mirrorOf))
-                                    root.editDraft(row.monitorName, "mirrorOf", valid[0] ?? "");
+                                    root.editDraft(row.monitorName, "mirrorOf", valid[0]);
                             }
                         }
 
@@ -284,7 +281,7 @@ StyledRect {
 
                         type: TextButton.Tonal
                         visible: row.isMirroring
-                        text: row.mirrorTargetName || qsTr("(none)")
+                        text: row.mirrorTargetName
                         enabled: validTargets.length > 1
                         onClicked: {
                             const cur = validTargets.includes(row.mirrorOf) ? row.mirrorOf : validTargets[0];
