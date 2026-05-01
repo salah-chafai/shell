@@ -140,7 +140,10 @@ StyledRect {
         id: reloadProc
 
         command: ["hyprctl", "reload"]
-        onExited: root.refreshMonitors()
+        onRunningChanged: {
+            if (!running)
+                root.refreshMonitors();
+        }
     }
 
     FileView {
